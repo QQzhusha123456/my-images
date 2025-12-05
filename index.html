@@ -77,7 +77,8 @@
     
     async function uploadToGitHub(file) {
         // ⚠️ 重要：这里需要你的GitHub Token
-        const token = 'ghp_whCmuoFfd5JHa12UJjsF00w98tF5L90HTBmG'; 
+        // Token通过Vercel环境变量注入
+const token = process.env.GITHUB_TOKEN || '';
         const repo = 'QQzhusha123456/my-images';
         const filename = Date.now() + '-' + file.name.replace(/[^a-zA-Z0-9.]/g, '');
         
