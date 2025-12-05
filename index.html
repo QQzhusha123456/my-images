@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>我的免费图床</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+        .upload-area { border: 3px dashed #4CAF50; padding: 40px; text-align: center; margin: 20px 0; border-radius: 10px; }
+        input, button { padding: 12px; margin: 10px; font-size: 16px; }
+        .result { background: #f0f8ff; padding: 15px; margin: 15px 0; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>📷 我的免费图床</h1>
+    <p>上传图片，自动生成永久CDN链接</p>
+    
+    <div class="upload-area">
+        <h3>选择图片上传</h3>
+        <input type="file" id="fileInput" accept="image/*" multiple>
+        <button onclick="uploadImage()">开始上传</button>
+        <p>支持 JPG、PNG、GIF 格式</p>
+    </div>
+    
+    <div id="results"></div>
+    
+    <script>
+    async function uploadImage() {
+        const fileInput = document.getElementById('fileInput');
+        const files = fileInput.files;
+        if (!files.length) return alert('请先选择图片');
+        
+        document.getElementById('results').innerHTML = '上传中...';
+        
+        for (let file of files) {
+            try {
+                // 压缩图片
+                const compressedFile = await compressImage(file);
+                
+                // 上传到GitHub
+                const cdnUrl = await uploadToGitHub(compressedFile);
+                
+                // 显示结果
+                document.getElementById('results').innerHTML += `
+                    <div class="result">
+                        <strong>${file.name}</strong> - 上传成功！<br>
+                        <input type="text" value="${cdnUrl}" style="width:90%; padding:8px;" readonly>
+                        <button onclick="copyToClipboard('${cdnUrl}')">复制链接</button>
+                    </div>
+                `;
+            } catch (error) {
+                document.getElementById('results').innerHTML += `<div style="color:red">${file.name} 上传失败: ${error}</div>`;
+            }
+        }
+    }
+    
+    async function compressImage(file) {
+        return new Promise(resolve => {
+            const reader = new FileReader();
+            reader.onload = e => {
+                const img = new Image();
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const ctx = canvas.getContext('2d');
+                    canvas.width = Math.min(img.width, 1200);
+                    canvas.height = (img.height * canvas.width) / img.width;
+                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    canvas.toBlob(blob => {
+                        resolve(new File([blob], file.name, {type: 'image/jpeg'}));
+                    }, 'image/jpeg', 0.8);
+                };
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        });
+    }
+    
+    async function uploadToGitHub(file) {
+        // ⚠️ 重要：这里需要你的GitHub Token
+        const token = 'ghp_whCmuoFfd5JHa12UJjsF00w98tF5L90HTBmG'; 
+        const repo = 'QQzhusha123456/my-images';
+        const filename = Date.now() + '-' + file.name.replace(/[^a-zA-Z0-9.]/g, '');
+        
+        // 转换为base64
+        const base64 = await new Promise(resolve => {
+            const reader = new FileReader();
+            reader.onload = e => resolve(e.target.result.split(',')[1]);
+            reader.readAsDataURL(file);
+        });
+        
+        // 上传到GitHub
+        const response = await fetch(`https://api.github.com/repos/${repo}/contents/${filename}`, {
+            method: 'PUT',
+            headers: {
+                'Authorization': `token ${token}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                message: 'Upload image via web',
+                content: base64,
+                branch: 'main'
+            })
+        });
+        
+        if (!response.ok) throw new Error('上传失败，请检查Token');
+        
+        // 生成CDN链接
+        return `https://cdn.jsdelivr.net/gh/${repo}/${filename}`;
+    }
+    
+    function copyToClipboard(text) {
+        navigator.clipboard.writeText(text);
+        alert('链接已复制到剪贴板！');
+    }
+    </script>
+</body>
+</html>
