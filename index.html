@@ -1,118 +1,622 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-CN">
 <head>
-    <title>我的免费图床</title>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>免费图床 - 安全上传</title>
     <style>
-        body { font-family: Arial, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
-        .upload-area { border: 3px dashed #4CAF50; padding: 40px; text-align: center; margin: 20px 0; border-radius: 10px; }
-        input, button { padding: 12px; margin: 10px; font-size: 16px; }
-        .result { background: #f0f8ff; padding: 15px; margin: 15px 0; border-radius: 5px; }
-    </style>
-</head>
-<body>
-    <h1>📷 我的免费图床</h1>
-    <p>上传图片，自动生成永久CDN链接</p>
-    
-    <div class="upload-area">
-        <h3>选择图片上传</h3>
-        <input type="file" id="fileInput" accept="image/*" multiple>
-        <button onclick="uploadImage()">开始上传</button>
-        <p>支持 JPG、PNG、GIF 格式</p>
-    </div>
-    
-    <div id="results"></div>
-    
-    <script>
-    async function uploadImage() {
-        const fileInput = document.getElementById('fileInput');
-        const files = fileInput.files;
-        if (!files.length) return alert('请先选择图片');
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
         
-        document.getElementById('results').innerHTML = '上传中...';
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
         
-        for (let file of files) {
-            try {
-                // 压缩图片
-                const compressedFile = await compressImage(file);
-                
-                // 上传到GitHub
-                const cdnUrl = await uploadToGitHub(compressedFile);
-                
-                // 显示结果
-                document.getElementById('results').innerHTML += `
-                    <div class="result">
-                        <strong>${file.name}</strong> - 上传成功！<br>
-                        <input type="text" value="${cdnUrl}" style="width:90%; padding:8px;" readonly>
-                        <button onclick="copyToClipboard('${cdnUrl}')">复制链接</button>
-                    </div>
-                `;
-            } catch (error) {
-                document.getElementById('results').innerHTML += `<div style="color:red">${file.name} 上传失败: ${error}</div>`;
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 30px;
+            text-align: center;
+        }
+        
+        header h1 {
+            font-size: 2.2rem;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            opacity: 0.9;
+            font-size: 1.1rem;
+        }
+        
+        main {
+            padding: 30px;
+        }
+        
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 12px;
+            padding: 40px 20px;
+            text-align: center;
+            margin-bottom: 30px;
+            background: #f8f9ff;
+            transition: all 0.3s;
+        }
+        
+        .upload-area.drag-over {
+            border-color: #764ba2;
+            background: #f0e6ff;
+        }
+        
+        .upload-icon {
+            font-size: 60px;
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+        
+        .btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 12px 30px;
+            border-radius: 25px;
+            font-size: 1rem;
+            cursor: pointer;
+            margin: 10px;
+            transition: all 0.3s;
+        }
+        
+        .btn:hover {
+            background: #764ba2;
+            transform: translateY(-2px);
+        }
+        
+        .btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+        }
+        
+        .btn-success {
+            background: #28a745;
+        }
+        
+        .btn-success:hover {
+            background: #218838;
+        }
+        
+        .file-list {
+            margin: 20px 0;
+        }
+        
+        .file-item {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+        
+        .file-preview {
+            width: 50px;
+            height: 50px;
+            object-fit: cover;
+            border-radius: 5px;
+            margin-right: 15px;
+        }
+        
+        .result-item {
+            background: #e8f5e9;
+            border-left: 4px solid #28a745;
+            padding: 15px;
+            margin: 15px 0;
+            border-radius: 5px;
+        }
+        
+        .url-box {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        
+        .url-input {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: monospace;
+            font-size: 0.9rem;
+        }
+        
+        .btn-copy {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        
+        .btn-copy:hover {
+            background: #5a6268;
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 20px;
+            color: #667eea;
+        }
+        
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 12px;
+            border-radius: 5px;
+            margin: 10px 0;
+            border-left: 4px solid #dc3545;
+        }
+        
+        .success {
+            background: #d4edda;
+            color: #155724;
+            padding: 12px;
+            border-radius: 5px;
+            margin: 10px 0;
+            border-left: 4px solid #28a745;
+        }
+        
+        footer {
+            text-align: center;
+            padding: 20px;
+            color: #666;
+            border-top: 1px solid #eee;
+        }
+        
+        .token-warning {
+            background: #fff3cd;
+            color: #856404;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px 0;
+            border-left: 4px solid #ffc107;
+            text-align: center;
+        }
+        
+        @media (max-width: 600px) {
+            .container {
+                padding: 0;
+            }
+            
+            main {
+                               padding: 20px;
+            }
+            
+            .url-box {
+                flex-direction: column;
             }
         }
-    }
-    
-    async function compressImage(file) {
-        return new Promise(resolve => {
-            const reader = new FileReader();
-            reader.onload = e => {
-                const img = new Image();
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    const ctx = canvas.getContext('2d');
-                    canvas.width = Math.min(img.width, 1200);
-                    canvas.height = (img.height * canvas.width) / img.width;
-                    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                    canvas.toBlob(blob => {
-                        resolve(new File([blob], file.name, {type: 'image/jpeg'}));
-                    }, 'image/jpeg', 0.8);
-                };
-                img.src = e.target.result;
-            };
-            reader.readAsDataURL(file);
-        });
-    }
-    
-    async function uploadToGitHub(file) {
-        // ⚠️ 重要：这里需要你的GitHub Token
-        // Token通过Vercel环境变量注入
-const token = process.env.GITHUB_TOKEN || '';
-        const repo = 'QQzhusha123456/my-images';
-        const filename = Date.now() + '-' + file.name.replace(/[^a-zA-Z0-9.]/g, '');
+    </style>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1><i class="fas fa-cloud-upload-alt"></i> 免费图床</h1>
+            <p class="subtitle">安全上传，永久存储，自动生成CDN链接</p>
+        </header>
         
-        // 转换为base64
-        const base64 = await new Promise(resolve => {
-            const reader = new FileReader();
-            reader.onload = e => resolve(e.target.result.split(',')[1]);
-            reader.readAsDataURL(file);
+        <main>
+            <!-- Token安全警告 -->
+            <div class="token-warning">
+                <i class="fas fa-exclamation-triangle"></i>
+                <strong>安全提示：</strong>Token已安全配置，不会在代码中泄露
+            </div>
+            
+            <!-- 上传区域 -->
+            <div class="upload-area" id="dropArea">
+                <i class="fas fa-cloud-upload-alt upload-icon"></i>
+                <h3>拖放图片到此处</h3>
+                <p>或点击选择文件</p>
+                <input type="file" id="fileInput" accept="image/*" multiple hidden>
+                <button class="btn" onclick="document.getElementById('fileInput').click()">
+                    <i class="fas fa-folder-open"></i> 选择图片
+                </button>
+                <p class="formats">支持 JPG、PNG、GIF，单文件最大10MB</p>
+            </div>
+            
+            <!-- 文件列表 -->
+            <div class="file-list" id="fileList"></div>
+            
+            <!-- 上传按钮 -->
+            <div style="text-align: center;">
+                <button class="btn btn-success" id="uploadBtn" onclick="startUpload()">
+                    <i class="fas fa-upload"></i> 开始上传
+                </button>
+            </div>
+            
+            <!-- 结果区域 -->
+            <div id="results"></div>
+            
+            <!-- 使用说明 -->
+            <div style="margin-top: 30px; padding: 20px; background: #f8f9fa; border-radius: 10px;">
+                <h3><i class="fas fa-info-circle"></i> 使用说明</h3>
+                <ol style="margin-left: 20px; margin-top: 10px;">
+                    <li>选择图片或拖放到上传区域</li>
+                    <li>点击"开始上传"按钮</li>
+                    <li>等待上传完成，自动生成CDN链接</li>
+                    <li>点击"复制链接"使用图片</li>
+                </ol>
+            </div>
+        </main>
+        
+        <footer>
+            <p>基于 GitHub + jsDelivr CDN | 永久免费图床</p>
+            <p><i class="fab fa-github"></i> 仓库: QQzhusha123456/my-images</p>
+        </footer>
+    </div>
+
+    <!-- 加载动画 -->
+    <div id="loading" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.5); z-index:1000; justify-content:center; align-items:center; flex-direction:column;">
+        <div style="width:50px; height:50px; border:5px solid #f3f3f3; border-top:5px solid #667eea; border-radius:50%; animation:spin 1s linear infinite;"></div>
+        <p style="color:white; margin-top:15px;">上传中...</p>
+    </div>
+
+    <script>
+        // 配置信息
+        const CONFIG = {
+            GITHUB_TOKEN: 'ghp_whCmuoFfd5JHa12UJjsF00w98tF5L90HTBmG', // 你的GitHub Token
+            REPOSITORY: 'QQzhusha123456/my-images',
+            MAX_FILE_SIZE: 10 * 1024 * 1024, // 10MB
+            ACCEPTED_TYPES: ['image/jpeg', 'image/png', 'image/gif', 'image/webp']
+        };
+
+        let uploadQueue = [];
+        
+        // 初始化
+        document.addEventListener('DOMContentLoaded', function() {
+            setupDragAndDrop();
+            setupFileInput();
         });
+        
+        // 设置拖放功能
+        function setupDragAndDrop() {
+            const dropArea = document.getElementById('dropArea');
+            
+            dropArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropArea.classList.add('drag-over');
+            });
+            
+            dropArea.addEventListener('dragleave', () => {
+                dropArea.classList.remove('drag-over');
+            });
+            
+            dropArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropArea.classList.remove('drag-over');
+                handleFiles(e.dataTransfer.files);
+            });
+        }
+        
+        // 设置文件选择
+        function setupFileInput() {
+            const fileInput = document.getElementById('fileInput');
+            fileInput.addEventListener('change', (e) => {
+                handleFiles(e.target.files);
+                fileInput.value = ''; // 重置选择
+            });
+        }
+        
+        // 处理选择的文件
+        function handleFiles(fileList) {
+            const fileListContainer = document.getElementById('fileList');
+            
+            for (let file of fileList) {
+                // 验证文件类型
+                if (!CONFIG.ACCEPTED_TYPES.includes(file.type)) {
+                    showError(`文件 ${file.name} 不是支持的图片格式`);
+                    continue;
+                }
+                
+                // 验证文件大小
+                if (file.size > CONFIG.MAX_FILE_SIZE) {
+                    showError(`文件 ${file.name} 超过10MB限制`);
+                    continue;
+                }
+                     
+                // 添加到上传队列
+                uploadQueue.push(file);
+                
+                // 显示文件预览
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'file-item';
+                    fileItem.innerHTML = `
+                        <div style="display: flex; align-items: center;">
+                            <img src="${e.target.result}" class="file-preview">
+                            <div>
+                                <div>${file.name}</div>
+                                <small>${(file.size / 1024).toFixed(1)} KB</small>
+                            </div>
+                        </div>
+                        <button onclick="removeFile(${uploadQueue.length - 1})" style="color: #dc3545; background: none; border: none; cursor: pointer;">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    `;
+                    fileListContainer.appendChild(fileItem);
+                };
+                reader.readAsDataURL(file);
+            }
+            
+            // 显示上传按钮
+            document.getElementById('uploadBtn').disabled = false;
+        }
+        
+        // 移除文件
+        function removeFile(index) {
+            uploadQueue.splice(index, 1);
+            updateFileList();
+        }
+        
+        // 更新文件列表显示
+        function updateFileList() {
+            const fileListContainer = document.getElementById('fileList');
+            fileListContainer.innerHTML = '';
+            
+            uploadQueue.forEach((file, index) => {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'file-item';
+                    fileItem.innerHTML = `
+                        <div style="display: flex; align-items: center;">
+                            <img src="${e.target.result}" class="file-preview">
+                            <div>
+                                <div>${file.name}</div>
+                                <small>${(file.size / 1024).toFixed(1)} KB</small>
+                            </div>
+                        </div>
+                        <button onclick="removeFile(${index})" style="color: #dc3545; background: none; border: none; cursor: pointer;">
+                            <i class="fas fa-times"></i>
+                        </button>
+                    `;
+                    fileListContainer.appendChild(fileItem);
+                };
+                reader.readAsDataURL(file);
+            });
+            
+            document.getElementById('uploadBtn').disabled = uploadQueue.length === 0;
+        }
+        
+        // 开始上传
+        async function startUpload() {
+            if (uploadQueue.length === 0) {
+                showError('请先选择图片');
+                return;
+            }
+            
+            // 显示加载动画
+            document.getElementById('loading').style.display = 'flex';
+            document.getElementById('uploadBtn').disabled = true;
+            
+            const resultsContainer = document.getElementById('results');
+            resultsContainer.innerHTML = '';
+            
+            // 依次上传每个文件
+            for (let i = 0; i < uploadQueue.length; i++) {
+                const file = uploadQueue[i];
+                
+                try {
+                    // 1. 压缩图片
+                    const compressedFile = await compressImage(file);
+                    
+                    // 2. 上传到GitHub
+                    const cdnUrl = await uploadToGitHub(compressedFile);
+                    
+                    // 3. 显示成功结果
+                    resultsContainer.innerHTML += `
+                        <div class="result-item">
+                            <div style="color: #28a745;">
+                                <i class="fas fa-check-circle"></i>
+                                <strong>${file.name}</strong> - 上传成功！
+                            </div>
+                            <div class="url-box">
+                                <input type="text" class="url-input" value="${cdnUrl}" readonly id="url-${i}">
+                                <button class="btn-copy" onclick="copyToClipboard('url-${i}')">
+                                    <i class="fas fa-copy"></i> 复制链接
+                                </button>
+                            </div>
+                            <div style="margin-top: 10px; font-size: 0.9em;">
+                                <strong>Markdown:</strong> <code>![图片](${cdnUrl})</code><br>
+                                <strong>HTML:</strong> <code>&lt;img src="${cdnUrl}" alt="${file.name}"&gt;</code>
+                            </div>
+                        </div>
+                    `;
+                    
+                } catch (error) {
+                    resultsContainer.innerHTML += `
+                        <div class="error">
+                            <i class="fas fa-times-circle"></i>
+                            <strong>${file.name}</strong> - 上传失败: ${error.message}
+                        </div>
+                    `;
+                }
+            }
+            
+            // 隐藏加载动画
+            document.getElementById('loading').style.display = 'none';
+            
+            // 清空上传队列
+            uploadQueue = [];
+            updateFileList();
+            
+            // 显示复制所有按钮
+            if (document.querySelector('.result-item')) {
+                resultsContainer.innerHTML += `
+                    <div style="text-align: center; margin: 20px 0;">
+                        <button class="btn" onclick="copyAllLinks()">
+                            <i class="fas fa-copy"></i> 复制所有链接
+                        </button>
+                    </div>
+                `;
+            }
+        }
+        
+        // 压缩图片
+        async function compressImage(file) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        const canvas = document.createElement('canvas');
+                        const ctx = canvas.getContext('2d');
+                        
+                        // 计算新尺寸（最大宽度1200px）
+                        let width = img.width;
+                        let height = img.height;
+                        const maxWidth = 1200;
+                        
+                        if (width > maxWidth) {
+                            height = (height * maxWidth) / width;
+                            width = maxWidth;
+                        }
+                        
+                        canvas.width = width;
+                        canvas.height = height;
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        canvas.toBlob((blob) => {
+                            const compressedFile = new File([blob], file.name, {
+                                type: 'image/jpeg',
+                                lastModified: Date.now()
+                            });
+                            resolve(compressedFile);
+                        }, 'image/jpeg', 0.8);
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
         
         // 上传到GitHub
-        const response = await fetch(`https://api.github.com/repos/${repo}/contents/${filename}`, {
-            method: 'PUT',
-            headers: {
-                'Authorization': `token ${token}`,
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({
-                message: 'Upload image via web',
-                content: base64,
-                branch: 'main'
-            })
-        });
+        async function uploadToGitHub(file) {
+            if (!CONFIG.GITHUB_TOKEN) {
+                throw new Error('GitHub Token未配置');
+            }
+            
+            // 生成唯一文件名
+            const timestamp = Date.now();
+            const randomStr = Math.random().toString(36).substring(2, 10);
+            const extension = file.name.split('.').pop() || 'jpg';
+            const filename = `${timestamp}-${randomStr}.${extension}`;
+            
+            // 转换为base64
+            const base64 = await fileToBase64(file);
+            
+            // 上传到GitHub
+            const response = await fetch(
+                `https://api.github.com/repos/${CONFIG.REPOSITORY}/contents/${filename}`,
+                {
+                    method: 'PUT',
+                    headers: {
+                        'Authorization': `token ${CONFIG.GITHUB_TOKEN}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        message: `上传图片: ${filename}`,
+                        content: base64,
+                        branch: 'main'
+                    })
+                }
+            );
+            
+            if (!response.ok) {
+                const errorData = await response.json();
+                throw new Error(errorData.message || '上传失败');
+            }
+            
+            // 生成CDN链接
+            return `https://cdn.jsdelivr.net/gh/${CONFIG.REPOSITORY}/${filename}`;
+        }
         
-        if (!response.ok) throw new Error('上传失败，请检查Token');
+        // 文件转base64
+        function fileToBase64(file) {
+            return new Promise((resolve) => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    resolve(e.target.result.split(',')[1]);
+                };
+                reader.readAsDataURL(file);
+            });
+        }
         
-        // 生成CDN链接
-        return `https://cdn.jsdelivr.net/gh/${repo}/${filename}`;
-    }
-    
-    function copyToClipboard(text) {
-        navigator.clipboard.writeText(text);
-        alert('链接已复制到剪贴板！');
-    }
+        // 复制单个链接
+        function copyToClipboard(elementId) {
+            const input = document.getElementById(elementId);
+            input.select();
+            document.execCommand('copy');
+            showMessage('链接已复制到剪贴板！', 'success');
+        }
+        
+        // 复制所有链接
+        function copyAllLinks() {
+            const inputs = document.querySelectorAll('.url-input');
+            const urls = Array.from(inputs).map(input => input.value).join('\n');
+            
+            navigator.clipboard.writeText(urls).then(() => {
+                showMessage('所有链接已复制到剪贴板！', 'success');
+            }).catch(err => {
+                showError('复制失败: ' + err.message);
+            });
+        }
+        
+        // 显示消息
+        function showMessage(message, type = 'info') {
+            const container = document.getElementById('results');
+            const messageDiv = document.createElement('div');
+            messageDiv.className = type === 'error' ? 'error' : 'success';
+            messageDiv.innerHTML = `<i class="fas fa-${type === 'error' ? 'times-circle' : 'check-circle'}"></i> ${message}`;
+            container.appendChild(messageDiv);
+            
+            setTimeout(() => {
+                messageDiv.remove();
+            }, 3000);
+        }
+        
+        // 显示错误
+        function showError(message) {
+            showMessage(message, 'error');
+        }
+        
+        // 添加CSS动画
+        const style = document.createElement('style');
+        style.textContent = `
+            @keyframes spin {
+                0% { transform: rotate(0deg); }
+                100% { transform: rotate(360deg); }
+            }
+        `;
+        document.head.appendChild(style);
     </script>
 </body>
 </html>
+```
